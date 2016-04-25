@@ -33,22 +33,29 @@
 A network is a graph, with nodes, and edges.
 
 In a neural network, the nodes are neurons, and the edges are synapses. Computer
-scientists use an abstraction of these neurons to perform  various kinds of
-computations. These abstracted neurons are composed of several parts: A number
-of entry points, with a weight for each entry point, a summation unit that
-computes the weighted sum of the inputs, and a (user defined) function that
-transforms the output of the summation unit.  Usually, this function is similar
-to a threshold.
+scientists use an abstraction of these neurons to perform various kinds of
+computations. Neural networks are practical because they are able to compute
+virtually any function, given a large enough network.
+In most cases these artificial neurons are composed of several parts:
+\begin{itemize}
+    \item A number of entry points, on which the current is represented by a
+        numerical value representing the intensity of the signal.
+    \item A summation unit that computes the weighted sum of the inputs, where the
+        weights are parameters.
+    \item A (user defined) function that transforms the output of the summation unit
+\end{itemize}
 
 In other words, one can see a neuron as a function $f : \mathbb{R}^n \rightarrow
 \mathbb{R}^m$.
-The function $f$ is composed of a dot product by a weight vector, composed with a
-threshold-like function, applied to each component of the input vector:
+The function $f$ is a composition of a dot product by a weight vector with a
+threshold-like function.
+
+The threshold function $t$ is applied to each component of the input vector:
 $t(x, y, z) = (t'(x), t'(y), t'(z))$. The result of a neuron corresponds to a 
 function $f$ with $f(\mathbf{v}) = t(\mathbf{v} \cdot \mathbf{w})$.  The threshold function
 $t'$ is either a usual threshold function or a smoother function, like $\tanh$,
-a sigmoid function:  where $S(x) = \frac{1}{1 + \exp(-x)}$, or a rectifier 
-$r(x) = \max(0, x)$.
+a sigmoid function  like $t(x) = \frac{1}{1 + \exp(-x)}$, or a rectifier 
+$t(x) = \max(0, x)$.
 
 When it comes to the structure of the network itself, we are going to consider
 the most general case. In this case, the input of the network is a number of
@@ -59,7 +66,7 @@ transformation $\ell : \mathbb{R}^n \rightarrow \mathbb{R}^m$. In the current
 setup, the input vector is multiplied by a matrix before application of the
 threshold function. 
 
-The process of machine learning is the ability to derive, from a \emph{relation}
+The process of ``learning'' consists of deriving, from a relation
 -- i.e. a set $R \subseteq \mathbb{R}^n \times \mathbb{R}^m$ -- a computational
 device that can produce a new element of the relation, while keeping the
 semantic structure of the relation.  
@@ -71,16 +78,14 @@ semantic structure of the relation.
 
 \subsection*{Motivation}
 
-The process of finding an easy way to map input data to output data is called
-\emph{modeling}. The model here is the neural network itself, however, the
-parameters of the neural network -- the weights on all connections -- are unknown. 
+The parameters of the system are the weights that are used in each neuron.
 
 Finding these parameters, considering the constraints of input-output pairs is a
 constraint satisfaction problem. This article presents an alternative method for
 training neural networks by using interval arithmetic and constraint
 propagation. Indeed, constraint propagation allows dropping entire uninteresting
-sections of the parameter space, therefore, the region describing the solution
-will be found \emph{no matter its shape}.
+sections of the parameter space, while making no assumptions about its topology
+or shape.
 
 \subsection*{Use cases and API} 
 
@@ -107,7 +112,7 @@ make sure \emph{some} configuration will work?
 
 In the current setup, only a specific kind of neural networks is considered:
 networks which have an input layer, and output layer, and hidden layers in
-between, so that each layer is connected to the next.
+between, so that each layer is fully connected to the next.
 
 Therefore, the smallest possible network for a function $f : \mathbb{R}^m
 \rightarrow \mathbb{R}^n$ has only one layer, with $m$ inputs and $n$ outputs. 
@@ -118,7 +123,7 @@ In the same fashion, a possible network for a function $f : \mathbb{R}^m \righta
 d_3), \cdots (d_j, n)]$. Removing the duplicates, a network structure can be
 represented by a list $[m, d_1, d_2, \cdots, d_j, n]$, although this
 representation is less explicit about the functional aspect of the layers, it
-show clearly the number of neurons a layer contains.
+show clearly the number of neurons each layer contains.
 
 By fixing limits to the size of the list and the number of values -- here the
 maximum number of dimensions a layer can output -- it is possible to enumerate
@@ -128,30 +133,31 @@ all possible network configurations.
 In many cases, it is not possible to find a perfect match between all the
 input-output pairs. In other words, it is often impossible to have a neural
 network with 0\% error. In constraint programming, allowing error in a system is
-done \emph{explicitly}. This is done by inserting \emph{slack variables}
-that are going to represent the error of the system. Then, the problem becomes a
-constraint optimization problem, where one wants to minimize the error.
-However, the advantage of using constraint programming in the current setup is
-that one can \emph{define} the maximum error of the network, and the system will work
-``backwards'' to try to find a network that satisfies what the user
-wants.
+done \emph{explicitly}. One of the elegant aspects of constraint programming is
+that it allows one to deal with variables in the mathematical sense. That is,
+variables are defined by the set of values they can take, and no more
+assumptions are made. Hence, if one wants to find a function $f(x) = y$ where
+the unknown value is the function $f$, and $x$ and $y$ are given, it is possible
+to find an approximate matching by having the same equation $f(x) = y'$ where $x$
+is a value but $y'$ is a variable, and inserting an additional constraint $y'
+\in [y - \delta, y + \delta]$, allowing some flexibility. 
 
-In order to be able to deal with such approximation, the expected output of the
-network is separated from the actual output of the network. For a dataset of
-size $S$, the $i$th expected output is called $\mathbf{y}_i$, the $i$th actual
-output is called $\mathbf{o}_i$, and there is an error vector
-$\boldsymbol{\delta}_i$ so that: 
-\begin{equation*} 
-    \forall i
-    \in [1, S] : \mathbf{y}_i = \mathbf{o}_i + \boldsymbol{\delta}_i 
-\end{equation*}
-
-In this context, defining an error of 80\% means defining another constraint on
-$\boldsymbol{\delta}_i$.
-
-\begin{equation*}
-    |\boldsymbol{\delta}_i| = 0.8 \times |\mathbf{o}_i| 
-\end{equation*}
+% In order to be able to deal with such approximation, the expected output of the
+% network is separated from the actual output of the network. For a dataset of
+% size $S$, the $i$th expected output is called $\mathbf{y}_i$, the $i$th actual
+% output is called $\mathbf{o}_i$, and there is an error vector
+% $\boldsymbol{\delta}_i$ so that: 
+% \begin{equation*} 
+%     \forall i
+%     \in [1, S] : \mathbf{y}_i = \mathbf{o}_i + \boldsymbol{\delta}_i 
+% \end{equation*}
+% 
+% In this context, defining an error of 80\% means defining another constraint on
+% $\boldsymbol{\delta}_i$.
+% 
+% \begin{equation*}
+%     |\boldsymbol{\delta}_i| = 0.8 \times |\mathbf{o}_i| 
+% \end{equation*}
 
 \subsubsection*{Exporting networks}
 TODO
@@ -172,8 +178,8 @@ TODO
         several parameters are needed: $L$ denotes the number of layers of the
         network.  The rest of the structure is represented as a list $[d_i, d_1, d_2 \dots
         d_{L-1}, d_o]$. In other words, specifying the layer structure amounts to
-        specify a composition -- or a sequence -- of transformations from one
-        space to another, with the only constraint being that the output of a
+        specify a sequence of transformations from one
+        space to another, the only constraint being that the output of a
         transformation corresponds to the input of the following transformation.
         
     \item{\textbf{Threshold function(s):}} The threshold function, called $t$, for each neuron
@@ -195,12 +201,12 @@ Each layer $\ell$ has:
 All decision variables defined above have the same domain, namely the
 largest range between the range of the input data and the output data.
 
-For each input-output vector couple, the vector $\boldsymbol{\delta}$ 
-represents the difference between the expected output and the actual output of the network.
-\begin{itemize}
-    \item For each couple $(\mathbf{v}_i, \mathbf{w}_i)$ where $i \in [1, |R|[$ 
-        there exists an error vector: $\boldsymbol{\delta}_i$
-\end{itemize}
+% For each input-output vector couple, the vector $\boldsymbol{\delta}$ 
+% represents the difference between the expected output and the actual output of the network.
+% \begin{itemize}
+%     \item For each couple $(\mathbf{v}_i, \mathbf{w}_i)$ where $i \in [1, |R|[$ 
+%         there exists an error vector: $\boldsymbol{\delta}_i$
+% \end{itemize}
 
 \subsection*{Constraints}
 The constraints of the system are the mathematical definitions of matrix
@@ -224,18 +230,25 @@ multiplication and application of a function.
             \forall j \in [1, m[:
                     O_{\ell, ij} = t(R_{\ell, ij})
         \end{equation*}
+    \item{\textbf{The input layer and the output layer match the relation
+        parameters:}} The input values of the first layer match the relation
+        domain, and the output values of the last layer match the relation
+        range.
+        \begin{equation*}
+            I_i = X \land O_o = Y
+        \end{equation*}
 \end{description}
 
-The allowed error of the network is expressed as a possible difference --
-denoted $\Delta$ -- between the output matrix of the last layer $O_L$
-and the expected output matrix $W$.
-\begin{description}
-
-        \item{\textbf{Error:}}
-            \begin{equation*}
-                O_L = Y + \Delta
-            \end{equation*}
-\end{description}
+% The allowed error of the network is expressed as a possible difference --
+% denoted $\Delta$ -- between the output matrix of the last layer $O_L$
+% and the expected output matrix $W$.
+% \begin{description}
+% 
+%         \item{\textbf{Error:}}
+%             \begin{equation*}
+%                 O_L = Y + \Delta
+%             \end{equation*}
+% \end{description}
 
 \subsection*{Process}
 
